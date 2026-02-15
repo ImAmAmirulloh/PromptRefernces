@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PromptCraft AI</title>
+  <base href="/" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Custom scrollbar for a more modern look */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #1f2937; /* gray-800 */
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #4b5563; /* gray-600 */
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #6b7280; /* gray-500 */
+    }
+    .reference-item-btn.selected {
+      border-color: #a855f7; /* purple-500 */
+      transform: scale(1.05);
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0"
+  }
+}
+</script>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans">
+
+<main class="min-h-screen bg-gray-900 text-gray-200 p-4 sm:p-6 lg:p-8">
+  <header class="text-center mb-8">
+    <h1 class="text-4xl sm:text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
+      PromptCraft AI
+    </h1>
+    <p class="mt-2 text-lg text-gray-400">Your intelligent partner for crafting perfect AI art prompts</p>
+  </header>
+
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+
+    <!-- Left Column: Controls & References -->
+    <div class="flex flex-col gap-6 bg-gray-800/50 p-6 rounded-2xl border border-gray-700 h-fit lg:h-[80vh] lg:overflow-y-auto">
+      
+      <!-- AI Idea Generator -->
+      <section>
+        <h2 class="text-2xl font-bold mb-3 text-cyan-400">1. Generate an Idea</h2>
+        <div class="flex flex-col gap-4">
+          <textarea id="summary-input"
+                    rows="3"
+                    placeholder="Describe a scene, character, or feeling... e.g., 'a lone astronaut discovers a glowing forest on a distant moon'"
+                    class="w-full p-3 bg-gray-900 border border-gray-600 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-colors placeholder-gray-500"></textarea>
+          
+          <button id="generate-btn"
+                  class="flex items-center justify-center w-full px-6 py-3 font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105">
+             <span id="generate-btn-text">✨ Smart Generate Idea</span>
+             <svg id="generate-btn-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+          </button>
+          
+          <div id="gemini-error-container" class="text-red-400 bg-red-900/50 p-3 rounded-md text-sm hidden"></div>
+        </div>
+      </section>
+      
+      <!-- Reference Libraries -->
+      <section>
+        <h2 class="text-2xl font-bold mb-3 text-purple-400">2. Add Details</h2>
+        <div id="reference-categories-container" class="flex flex-col gap-4">
+          <!-- Categories will be rendered here by JS -->
+        </div>
+      </section>
+    </div>
+
+    <!-- Right Column: Prompt Output -->
+    <div class="flex flex-col gap-6 bg-gray-800/50 p-6 rounded-2xl border border-gray-700 h-fit lg:h-[80vh]">
+      <h2 class="text-2xl font-bold text-pink-400">3. Your Final Prompt</h2>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center bg-gray-900 rounded-lg p-1">
+          <button id="view-text-btn" class="px-4 py-2 text-sm font-medium rounded-md transition-colors bg-pink-500 text-white">Text</button>
+          <button id="view-json-btn" class="px-4 py-2 text-sm font-medium rounded-md transition-colors text-gray-300 hover:bg-gray-700">JSON</button>
+        </div>
+        <button id="copy-btn" class="flex items-center gap-2 px-4 py-2 font-semibold text-white bg-gray-700 rounded-lg hover:bg-gray-600 transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+          </svg>
+          <span id="copy-btn-text">Copy</span>
+        </button>
+      </div>
+      
+      <div id="prompt-output-container" class="bg-gray-900 rounded-lg p-4 flex-grow h-96 min-h-[300px] overflow-y-auto">
+        <div class="flex items-center justify-center h-full text-gray-500">
+          <p>Your generated prompt will appear here...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  import { GoogleGenAI } from '@google/genai';
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // --- STATE ---
+    let summary = '';
+    let generatedIdea = '';
+    let promptParts = new Map(); // Using a Map to easily manage selected parts by ID
+    let isLoading = false;
+    let promptViewMode = 'text'; // 'text' or 'json'
+    
+    // --- DOM ELEMENT REFERENCES ---
+    const summaryInput = document.getElementById('summary-input');
+    const generateBtn = document.getElementById('generate-btn');
+    const generateBtnText = document.getElementById('generate-btn-text');
+    const generateBtnSpinner = document.getElementById('generate-btn-spinner');
+    const geminiErrorContainer = document.getElementById('gemini-error-container');
+    const categoriesContainer = document.getElementById('reference-categories-container');
+    const promptOutputContainer = document.getElementById('prompt-output-container');
+    const viewTextBtn = document.getElementById('view-text-btn');
+    const viewJsonBtn = document.getElementById('view-json-btn');
+    const copyBtn = document.getElementById('copy-btn');
+    const copyBtnText = document.getElementById('copy-btn-text');
+
+    // --- GEMINI API ---
+    let genAI;
+    try {
+      if (!process.env.API_KEY) throw new Error("API_KEY not configured.");
+      genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    } catch(e) {
+      showError("Failed to initialize Gemini Service. Make sure the API key is configured correctly.");
+      console.error(e);
+    }
+    
+    async function generatePromptIdea(summaryText) {
+      if (!genAI) {
+        showError("Gemini AI client is not initialized.");
+        return '';
+      }
+      if (!summaryText.trim()) return '';
+
+      const prompt = `Based on the following summary, generate a creative and detailed prompt idea for an AI image generator. Focus on visual details, atmosphere, and composition. The summary is: "${summaryText}"`;
+      
+      try {
+        const response = await genAI.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: { temperature: 0.8, maxOutputTokens: 200 }
+        });
+        return response.text;
+      } catch (e) {
+        showError(`An error occurred while generating the idea: ${e.message || 'Unknown error'}`);
+        console.error("Error calling Gemini API:", e);
+        return '';
+      }
+    }
+
+    // --- RENDERING LOGIC ---
+
+    function renderFinalPrompt() {
+        const idea = generatedIdea.trim();
+        const partsText = Array.from(promptParts.values()).map(p => p.value).join(', ');
+        const finalPrompt = [idea, partsText].filter(Boolean).join(', ');
+
+        if (finalPrompt.trim() === '') {
+            promptOutputContainer.innerHTML = `<div class="flex items-center justify-center h-full text-gray-500"><p>Your generated prompt will appear here...</p></div>`;
+            return;
+        }
+
+        if (promptViewMode === 'text') {
+            promptOutputContainer.innerHTML = `<p class="text-gray-300 whitespace-pre-wrap leading-relaxed">${finalPrompt}</p>`;
+        } else {
+            const structuredPrompt = { base_idea: idea, details: {} };
+            promptParts.forEach(part => {
+                if (!structuredPrompt.details[part.type]) {
+                    structuredPrompt.details[part.type] = [];
+                }
+                structuredPrompt.details[part.type].push(part.name);
+            });
+            promptOutputContainer.innerHTML = `<pre class="text-sm text-gray-300 whitespace-pre-wrap leading-relaxed">${JSON.stringify(structuredPrompt, null, 2)}</pre>`;
+        }
+    }
+
+    function renderReferenceCategories() {
+      const referenceCategories = getReferenceCategories();
+      let html = '';
+      referenceCategories.forEach((category, index) => {
+        html += `
+          <details class="bg-gray-900/70 border border-gray-700 rounded-lg overflow-hidden" ${index === 0 ? 'open' : ''}>
+            <summary class="p-4 cursor-pointer font-semibold text-lg hover:bg-gray-800 transition-colors">
+              ${category.title}
+            </summary>
+            <div class="p-4 border-t border-gray-700 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              ${category.items.map(item => renderReferenceItem(item)).join('')}
+            </div>
+          </details>`;
+      });
+      categoriesContainer.innerHTML = html;
+    }
+
+    function renderReferenceItem(item) {
+      const partId = `${item.type}:${item.name}`;
+      const isSelected = promptParts.has(partId);
+      const selectedClass = isSelected ? 'selected' : '';
+      
+      // Escape quotes for data attributes
+      const valueAttr = item.value.replace(/"/g, '&quot;');
+      
+      const checkmark = `
+        <div class="absolute top-1 right-1 bg-purple-500 text-white rounded-full h-5 w-5 flex items-center justify-center">
+           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+           </svg>
+        </div>`;
+      
+      if (item.color) {
+        return `
+          <button class="reference-item-btn group relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 border-gray-600 hover:border-purple-400 ${selectedClass}"
+                  data-id="${partId}" data-name="${item.name}" data-value="${valueAttr}" data-type="${item.type}">
+            <div class="w-full h-full" style="background-color:${item.color};"></div>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end justify-center p-2 text-center">
+              <span class="font-medium text-xs sm:text-sm text-white">${item.name}</span>
+            </div>
+            ${isSelected ? checkmark : ''}
+          </button>`;
+      } else {
+        return `
+          <button class="reference-item-btn group relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 border-transparent hover:border-purple-400 ${selectedClass}"
+                  data-id="${partId}" data-name="${item.name}" data-value="${valueAttr}" data-type="${item.type}">
+            <img src="${item.thumbnailUrl}" alt="${item.name}" width="100" height="100" class="w-full h-full object-cover transition-transform group-hover:scale-110" loading="lazy" />
+            <div class="absolute inset-0 bg-black/60 flex items-center justify-center p-2 text-center">
+              <span class="font-medium text-xs sm:text-sm text-white">${item.name}</span>
+            </div>
+            ${isSelected ? checkmark : ''}
+          </button>`;
+      }
+    }
+
+    // --- UI HELPERS ---
+    
+    function setLoading(state) {
+        isLoading = state;
+        generateBtn.disabled = state;
+        if (state) {
+            generateBtnText.textContent = 'Generating...';
+            generateBtnSpinner.classList.remove('hidden');
+        } else {
+            generateBtnText.textContent = '✨ Smart Generate Idea';
+            generateBtnSpinner.classList.add('hidden');
+        }
+    }
+
+    function showError(message) {
+      if (message) {
+        geminiErrorContainer.textContent = `Error: ${message}`;
+        geminiErrorContainer.classList.remove('hidden');
+      } else {
+        geminiErrorContainer.classList.add('hidden');
+      }
+    }
+
+    // --- EVENT HANDLERS ---
+    
+    summaryInput.addEventListener('input', (e) => {
+      summary = e.target.value;
+    });
+
+    generateBtn.addEventListener('click', async () => {
+      setLoading(true);
+      showError(null);
+      generatedIdea = await generatePromptIdea(summary);
+      renderFinalPrompt();
+      setLoading(false);
+    });
+    
+    categoriesContainer.addEventListener('click', (e) => {
+      const button = e.target.closest('.reference-item-btn');
+      if (!button) return;
+      
+      const { id, name, value, type } = button.dataset;
+
+      if (promptParts.has(id)) {
+        promptParts.delete(id);
+        button.classList.remove('selected');
+        button.querySelector('.absolute.top-1')?.remove();
+      } else {
+        promptParts.set(id, { name, value, type });
+        button.classList.add('selected');
+        const checkmark = document.createElement('div');
+        checkmark.innerHTML = `
+          <div class="absolute top-1 right-1 bg-purple-500 text-white rounded-full h-5 w-5 flex items-center justify-center">
+             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+             </svg>
+          </div>`;
+        button.appendChild(checkmark.firstElementChild);
+      }
+      renderFinalPrompt();
+    });
+    
+    viewTextBtn.addEventListener('click', () => {
+        promptViewMode = 'text';
+        viewTextBtn.classList.add('bg-pink-500', 'text-white');
+        viewTextBtn.classList.remove('text-gray-300', 'hover:bg-gray-700');
+        viewJsonBtn.classList.remove('bg-pink-500', 'text-white');
+        viewJsonBtn.classList.add('text-gray-300', 'hover:bg-gray-700');
+        renderFinalPrompt();
+    });
+
+    viewJsonBtn.addEventListener('click', () => {
+        promptViewMode = 'json';
+        viewJsonBtn.classList.add('bg-pink-500', 'text-white');
+        viewJsonBtn.classList.remove('text-gray-300', 'hover:bg-gray-700');
+        viewTextBtn.classList.remove('bg-pink-500', 'text-white');
+        viewTextBtn.classList.add('text-gray-300', 'hover:bg-gray-700');
+        renderFinalPrompt();
+    });
+    
+    copyBtn.addEventListener('click', () => {
+        const content = promptViewMode === 'text' 
+            ? promptOutputContainer.querySelector('p')?.textContent 
+            : promptOutputContainer.querySelector('pre')?.textContent;
+        
+        if (content) {
+            navigator.clipboard.writeText(content).then(() => {
+                copyBtnText.textContent = 'Copied!';
+                setTimeout(() => { copyBtnText.textContent = 'Copy'; }, 2000);
+            });
+        }
+    });
+
+
+    // --- DATA ---
+    function getReferenceCategories() {
+      return [
+        { title: 'Art Styles', items: getArtStyles() },
+        { title: 'Hair Styles', items: getHairStyles() },
+        { title: 'Body Types', items: getBodyTypes() },
+        { title: 'Eye Types', items: getEyeTypes() },
+        { title: 'Skin Colors', items: getSkinColors() },
+        { title: 'Lip Colors', items: getLipColors() },
+        { title: 'General Colors', items: getGeneralColors() }
+      ];
+    }
+    // All data functions remain the same as they return plain JS objects/arrays
+    function getArtStyles() {
+        const styles = [
+          { name: 'Anime (90s Style)', value: '90s anime aesthetic, retro anime style' },
+          { name: 'Anime (Modern)', value: 'modern anime style, crisp digital art' },
+          { name: 'Ghibli Style', value: 'Studio Ghibli inspired, whimsical, painted backgrounds' },
+          { name: 'Flux', value: 'flux art style, vibrant, dynamic energy, abstract' },
+          { name: 'Realistic Flux', value: 'realistic flux style, high detail, energetic lighting' },
+          { name: 'Hyperrealistic', value: 'hyperrealistic, photorealistic details, high fidelity' },
+          { name: 'Impressionism', value: 'impressionistic, visible brush strokes, focus on light' },
+          { name: 'Surrealism', value: 'surreal, dreamlike, illogical scenes' },
+          { name: 'Cyberpunk', value: 'cyberpunk, neon-drenched city, high-tech low-life' },
+          { name: 'Steampunk', value: 'steampunk, victorian era technology, gears and steam power' },
+          { name: 'Art Deco', value: 'art deco, geometric shapes, elegant, luxurious' },
+          { name: 'Watercolor', value: 'watercolor painting, soft edges, blended colors' },
+          { name: 'Oil Painting', value: 'classic oil painting, rich textures, dramatic lighting' },
+          { name: 'Concept Art', value: 'digital concept art, cinematic, detailed environment' },
+          { name: '3D Render', value: 'highly detailed 3D render, octane render, unreal engine' },
+          { name: 'Voxel Art', value: 'voxel art, blocky, 3D pixel art' }
+        ];
+        return styles.map(s => ({ ...s, type: 'art-style', thumbnailUrl: `https://picsum.photos/seed/${s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/100/100` }));
+      }
+
+      function getHairStyles() {
+        const styles = ['Long & Wavy', 'Short Bob', 'Pixie Cut', 'Braids', 'Dreadlocks', 'Top Knot', 'Ponytail', 'Spiky', 'Curly Afro', 'Slicked Back'];
+        return styles.map(s => ({ name: s, value: `${s.toLowerCase()} hair`, type: 'hair-style', thumbnailUrl: `https://picsum.photos/seed/hair-${s.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/100/100` }));
+      }
+
+      function getBodyTypes() {
+          const types = ['Slender', 'Athletic', 'Muscular', 'Curvy', 'Stocky', 'Petite'];
+          return types.map(t => ({ name: t, value: `${t.toLowerCase()} body type`, type: 'body-type', thumbnailUrl: `https://picsum.photos/seed/body-${t.toLowerCase()}/100/100`}));
+      }
+
+      function getEyeTypes() {
+          const types = ['Almond', 'Round', 'Hooded', 'Monolid', 'Upturned', 'Downturned', 'Cat-eye'];
+          return types.map(t => ({ name: t, value: `${t.toLowerCase()} eyes`, type: 'eye-type', thumbnailUrl: `https://picsum.photos/seed/eyes-${t.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/100/100`}));
+      }
+
+      function getSkinColors() {
+          const colors = [ { name: 'Pale', value: '#F2D4C2' }, { name: 'Fair', value: '#EBC3AC' }, { name: 'Tan', value: '#D8A788' }, { name: 'Olive', value: '#B58A6F' }, { name: 'Brown', value: '#8C6246' }, { name: 'Dark Brown', value: '#593E2F' } ];
+          return colors.map(c => ({ name: c.name, value: `${c.name.toLowerCase()} skin tone`, type: 'skin-color', thumbnailUrl: '', color: c.value }));
+      }
+
+      function getLipColors() {
+          const colors = [ { name: 'Natural Pink', value: '#E6A5A5' }, { name: 'Ruby Red', value: '#D1002F' }, { name: 'Deep Plum', value: '#4A0033' }, { name: 'Coral', value: '#FF7F50' }, { name: 'Nude Beige', value: '#D3A18C' } ];
+          return colors.map(c => ({ name: c.name, value: `${c.name.toLowerCase()} lips`, type: 'lip-color', thumbnailUrl: '', color: c.value }));
+      }
+
+      function getGeneralColors() {
+          const colors = [ { name: 'Crimson', value: '#DC143C' }, { name: 'Azure', value: '#007FFF' }, { name: 'Emerald', value: '#50C878' }, { name: 'Gold', value: '#FFD700' }, { name: 'Silver', value: '#C0C0C0' }, { name: 'Violet', value: '#8F00FF' }, { name: 'Charcoal', value: '#36454F' } ];
+          return colors.map(c => ({ name: c.name, value: `color theme: ${c.name.toLowerCase()}`, type: 'general-color', thumbnailUrl: '', color: c.value }));
+      }
+    
+    // --- INITIALIZATION ---
+    renderReferenceCategories();
+
+  });
+</script>
+</body>
+</html>

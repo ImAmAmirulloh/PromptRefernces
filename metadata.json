@@ -1,0 +1,5 @@
+{
+  "name": "PromptCraft AI",
+  "description": "An intelligent prompt builder that helps you craft the perfect text-to-image prompts. Use AI to generate ideas from a simple summary, and refine your creation by selecting from extensive libraries of art styles, character features, and colors.",
+  "requestFramePermissions": []
+}
