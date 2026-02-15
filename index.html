@@ -27,6 +27,11 @@
       transform: scale(1.05);
       box-shadow: 0 0 15px rgba(168, 85, 247, 0.3);
     }
+    .reference-item-btn.selected-svg {
+        background-color: #a855f7; /* purple-500 */
+        color: white;
+        border-color: #a855f7;
+    }
   </style>
 <script type="importmap">
 {
@@ -63,7 +68,7 @@
           <button id="generate-btn"
                   class="flex items-center justify-center w-full px-6 py-3 font-semibold text-white bg-gradient-to-r from-cyan-500 to-blue-500 rounded-lg hover:from-cyan-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105">
              <span id="generate-btn-text">✨ Smart Generate Idea</span>
-             <svg id="generate-btn-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+             <svg id="generate-btn-spinner" class="animate-spin -ml-1 mr-3 h-5 w-5 text-white hidden" xmlns="http://www.w.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
@@ -76,8 +81,16 @@
       <!-- Reference Libraries -->
       <section>
         <h2 class="text-2xl font-bold mb-3 text-purple-400">2. Add Details</h2>
-        <div id="reference-categories-container" class="flex flex-col gap-4">
-          <!-- Categories will be rendered here by JS -->
+        <div id="reference-items-wrapper">
+            <div id="collapsible-categories-container" class="flex flex-col gap-4">
+                <!-- Collapsible image categories will be rendered here by JS -->
+            </div>
+            <div id="static-svg-categories-container" class="mt-6">
+                 <!-- Static SVG categories will be rendered here by JS -->
+            </div>
+            <div id="color-categories-container" class="flex flex-col gap-4 mt-6">
+                 <!-- Static color categories will be rendered here by JS -->
+            </div>
         </div>
       </section>
     </div>
@@ -124,7 +137,10 @@
     const generateBtnText = document.getElementById('generate-btn-text');
     const generateBtnSpinner = document.getElementById('generate-btn-spinner');
     const geminiErrorContainer = document.getElementById('gemini-error-container');
-    const categoriesContainer = document.getElementById('reference-categories-container');
+    const referenceItemsWrapper = document.getElementById('reference-items-wrapper');
+    const collapsibleCategoriesContainer = document.getElementById('collapsible-categories-container');
+    const staticSvgCategoriesContainer = document.getElementById('static-svg-categories-container');
+    const colorCategoriesContainer = document.getElementById('color-categories-container');
     const promptOutputContainer = document.getElementById('prompt-output-container');
     const viewTextBtn = document.getElementById('view-text-btn');
     const viewJsonBtn = document.getElementById('view-json-btn');
@@ -190,12 +206,17 @@
         }
     }
 
-    function renderReferenceCategories() {
-      const referenceCategories = getReferenceCategories();
-      let html = '';
-      referenceCategories.forEach((category, index) => {
-        html += `
-          <details class="bg-gray-900/70 border border-gray-700 rounded-lg overflow-hidden" ${index === 0 ? 'open' : ''}>
+    function renderAllCategories() {
+      const allCategories = getReferenceCategories();
+      const imageCategories = allCategories.filter(c => c.items[0]?.thumbnailUrl);
+      const svgCategories = allCategories.filter(c => c.items[0]?.svg);
+      const colorCategories = allCategories.filter(c => c.items[0]?.color);
+
+      // Render Collapsible Image Categories
+      let collapsibleHtml = '';
+      imageCategories.forEach((category, index) => {
+        collapsibleHtml += `
+          <details class="bg-gray-900/70 border border-gray-700 rounded-lg overflow-hidden" open>
             <summary class="p-4 cursor-pointer font-semibold text-lg hover:bg-gray-800 transition-colors">
               ${category.title}
             </summary>
@@ -204,17 +225,44 @@
             </div>
           </details>`;
       });
-      categoriesContainer.innerHTML = html;
+      collapsibleCategoriesContainer.innerHTML = collapsibleHtml;
+
+      // Render Static SVG Categories
+      let staticSvgHtml = `
+        <div class="bg-gray-900/70 border border-gray-700 rounded-lg p-4">
+            <h3 class="font-semibold text-lg mb-3">Character Features</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                ${svgCategories.map(category => `
+                    <div>
+                        <h4 class="font-medium text-purple-300 mb-2">${category.title}</h4>
+                        <div class="grid grid-cols-3 gap-2">
+                            ${category.items.map(item => renderReferenceItem(item)).join('')}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+      staticSvgCategoriesContainer.innerHTML = staticSvgHtml;
+
+      // Render Static Color Categories
+      let colorHtml = '';
+      colorCategories.forEach(category => {
+          colorHtml += `
+            <div class="bg-gray-900/70 border border-gray-700 rounded-lg p-4">
+                <h3 class="font-semibold text-lg mb-3">${category.title}</h3>
+                <div class="grid grid-cols-6 sm:grid-cols-8 gap-3">
+                    ${category.items.map(item => renderReferenceItem(item)).join('')}
+                </div>
+            </div>
+          `;
+      });
+      colorCategoriesContainer.innerHTML = colorHtml;
     }
 
     function renderReferenceItem(item) {
       const partId = `${item.type}:${item.name}`;
       const isSelected = promptParts.has(partId);
-      const selectedClass = isSelected ? 'selected' : '';
-      
-      // Escape quotes for data attributes
       const valueAttr = item.value.replace(/"/g, '&quot;');
-      
       const checkmark = `
         <div class="absolute top-1 right-1 bg-purple-500 text-white rounded-full h-5 w-5 flex items-center justify-center">
            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -223,22 +271,32 @@
         </div>`;
       
       if (item.color) {
+        const selectedClass = isSelected ? 'selected' : '';
         return `
           <button class="reference-item-btn group relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 border-gray-600 hover:border-purple-400 ${selectedClass}"
                   data-id="${partId}" data-name="${item.name}" data-value="${valueAttr}" data-type="${item.type}">
             <div class="w-full h-full" style="background-color:${item.color};"></div>
-            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end justify-center p-2 text-center">
-              <span class="font-medium text-xs sm:text-sm text-white">${item.name}</span>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end justify-center p-1 text-center">
+              <span class="font-medium text-[10px] sm:text-xs text-white leading-tight">${item.name}</span>
             </div>
             ${isSelected ? checkmark : ''}
           </button>`;
-      } else {
+      } else if (item.svg) {
+        const selectedClass = isSelected ? 'selected-svg' : 'bg-gray-800 hover:border-purple-400';
+        return `
+            <button class="reference-item-btn flex flex-col items-center justify-center gap-1 p-2 rounded-lg border-2 border-gray-700 transition-colors duration-200 ${selectedClass}"
+                    data-id="${partId}" data-name="${item.name}" data-value="${valueAttr}" data-type="${item.type}">
+                ${item.svg}
+                <span class="text-xs font-medium">${item.name}</span>
+            </button>`;
+      } else { // Image item
+        const selectedClass = isSelected ? 'selected' : '';
         return `
           <button class="reference-item-btn group relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-200 border-transparent hover:border-purple-400 ${selectedClass}"
                   data-id="${partId}" data-name="${item.name}" data-value="${valueAttr}" data-type="${item.type}">
             <img src="${item.thumbnailUrl}" alt="${item.name}" width="100" height="100" class="w-full h-full object-cover transition-transform group-hover:scale-110" loading="lazy" />
-            <div class="absolute inset-0 bg-black/60 flex items-center justify-center p-2 text-center">
-              <span class="font-medium text-xs sm:text-sm text-white">${item.name}</span>
+            <div class="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center p-2 text-center">
+              <span class="font-medium text-xs sm:text-sm text-white leading-tight">${item.name}</span>
             </div>
             ${isSelected ? checkmark : ''}
           </button>`;
@@ -282,7 +340,7 @@
       setLoading(false);
     });
     
-    categoriesContainer.addEventListener('click', (e) => {
+    referenceItemsWrapper.addEventListener('click', (e) => {
       const button = e.target.closest('.reference-item-btn');
       if (!button) return;
       
@@ -290,20 +348,11 @@
 
       if (promptParts.has(id)) {
         promptParts.delete(id);
-        button.classList.remove('selected');
-        button.querySelector('.absolute.top-1')?.remove();
       } else {
         promptParts.set(id, { name, value, type });
-        button.classList.add('selected');
-        const checkmark = document.createElement('div');
-        checkmark.innerHTML = `
-          <div class="absolute top-1 right-1 bg-purple-500 text-white rounded-full h-5 w-5 flex items-center justify-center">
-             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-             </svg>
-          </div>`;
-        button.appendChild(checkmark.firstElementChild);
       }
+      // Re-render the specific section that was clicked for visual update
+      renderAllCategories(); 
       renderFinalPrompt();
     });
     
@@ -351,14 +400,12 @@
         { title: 'General Colors', items: getGeneralColors() }
       ];
     }
-    // All data functions remain the same as they return plain JS objects/arrays
+    
     function getArtStyles() {
         const styles = [
-          { name: 'Anime (90s Style)', value: '90s anime aesthetic, retro anime style' },
+          { name: 'Anime (90s)', value: '90s anime aesthetic, retro anime style' },
           { name: 'Anime (Modern)', value: 'modern anime style, crisp digital art' },
           { name: 'Ghibli Style', value: 'Studio Ghibli inspired, whimsical, painted backgrounds' },
-          { name: 'Flux', value: 'flux art style, vibrant, dynamic energy, abstract' },
-          { name: 'Realistic Flux', value: 'realistic flux style, high detail, energetic lighting' },
           { name: 'Hyperrealistic', value: 'hyperrealistic, photorealistic details, high fidelity' },
           { name: 'Impressionism', value: 'impressionistic, visible brush strokes, focus on light' },
           { name: 'Surrealism', value: 'surreal, dreamlike, illogical scenes' },
@@ -366,46 +413,59 @@
           { name: 'Steampunk', value: 'steampunk, victorian era technology, gears and steam power' },
           { name: 'Art Deco', value: 'art deco, geometric shapes, elegant, luxurious' },
           { name: 'Watercolor', value: 'watercolor painting, soft edges, blended colors' },
-          { name: 'Oil Painting', value: 'classic oil painting, rich textures, dramatic lighting' },
           { name: 'Concept Art', value: 'digital concept art, cinematic, detailed environment' },
-          { name: '3D Render', value: 'highly detailed 3D render, octane render, unreal engine' },
-          { name: 'Voxel Art', value: 'voxel art, blocky, 3D pixel art' }
+          { name: '3D Render', value: 'highly detailed 3D render, octane render, unreal engine' }
         ];
         return styles.map(s => ({ ...s, type: 'art-style', thumbnailUrl: `https://picsum.photos/seed/${s.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/100/100` }));
-      }
+    }
 
-      function getHairStyles() {
-        const styles = ['Long & Wavy', 'Short Bob', 'Pixie Cut', 'Braids', 'Dreadlocks', 'Top Knot', 'Ponytail', 'Spiky', 'Curly Afro', 'Slicked Back'];
-        return styles.map(s => ({ name: s, value: `${s.toLowerCase()} hair`, type: 'hair-style', thumbnailUrl: `https://picsum.photos/seed/hair-${s.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/100/100` }));
-      }
+    function getHairStyles() {
+        const styles = [
+            { name: 'Wavy', value: 'long wavy hair', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6s1.5-2 5-2 5 2 5 2-1.5 2-5 2-5-2-5-2zM3 12s1.5-2 5-2 5 2 5 2-1.5 2-5 2-5-2-5-2zM3 18s1.5-2 5-2 5 2 5 2-1.5 2-5 2-5-2-5-2z"/></svg>'},
+            { name: 'Bob', value: 'short bob hair', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c0-4.4-3.6-8-8-8S3 9.6 3 14h16zM9 14v5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-5"/></svg>'},
+            { name: 'Pixie', value: 'pixie cut hair', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5L14 12l5 7m-9-2l-5-7 5-5"/></svg>'},
+            { name: 'Braids', value: 'braided hair', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3m0 3v3m0 3v3m0 3v3M16 3v3m0 3v3m0 3v3m0 3v3M12 3v18"/></svg>'},
+            { name: 'Afro', value: 'curly afro', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0-10 10c0 4.42 2.87 8.17 6.84 9.5c.5.08.86-.38.86-.85v-2.1c0-.33-.16-.62-.43-.82c-1.3-.65-2.22-1.9-2.22-3.41c0-2.34 1.9-4.25 4.25-4.25s4.25 1.91 4.25 4.25c0 1.51-.92 2.76-2.22 3.41c-.27.2-.43.49-.43.82v2.1c0 .47.36.93.86.85C19.13 20.17 22 16.42 22 12A10 10 0 0 0 12 2z"/></svg>'},
+            { name: 'Spiky', value: 'spiky hair', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L12 8M17.6 4.4L14 8M22 12L16 12M17.6 19.6L14 16M12 22L12 16M6.4 19.6L10 16M2 12L8 12M6.4 4.4L10 8"/></svg>'}
+        ];
+        return styles.map(s => ({ ...s, type: 'hair-style' }));
+    }
 
-      function getBodyTypes() {
-          const types = ['Slender', 'Athletic', 'Muscular', 'Curvy', 'Stocky', 'Petite'];
-          return types.map(t => ({ name: t, value: `${t.toLowerCase()} body type`, type: 'body-type', thumbnailUrl: `https://picsum.photos/seed/body-${t.toLowerCase()}/100/100`}));
-      }
+    function getBodyTypes() {
+        const types = [
+            { name: 'Slender', value: 'slender body type', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6L12 18M10 6h4"/></svg>'},
+            { name: 'Athletic', value: 'athletic body type', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 6h10l-2 5h-6l-2-5zM9 11v7h6v-7"/></svg>'},
+            { name: 'Curvy', value: 'curvy body type', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6C7.9 7.1 7 8.5 7 10s.9 2.9 2 4s2.5 2 4 2s2.9-.9 4-2s2-2.5 2-4s-.9-2.9-2-4s-2.5-2-4-2s-2.9.9-4 2z"/></svg>'}
+        ];
+        return types.map(t => ({ ...t, type: 'body-type'}));
+    }
 
-      function getEyeTypes() {
-          const types = ['Almond', 'Round', 'Hooded', 'Monolid', 'Upturned', 'Downturned', 'Cat-eye'];
-          return types.map(t => ({ name: t, value: `${t.toLowerCase()} eyes`, type: 'eye-type', thumbnailUrl: `https://picsum.photos/seed/eyes-${t.toLowerCase().replace(/[^a-z0-9]+/g, '-')}/100/100`}));
-      }
+    function getEyeTypes() {
+        const types = [
+            { name: 'Almond', value: 'almond eyes', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C2 12 6 4 12 4s10 8 10 8s-4 8-10 8S2 12 2 12z"/><circle cx="12" cy="12" r="2"/></svg>'},
+            { name: 'Round', value: 'round eyes', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/></svg>'},
+            { name: 'Cat-eye', value: 'cat-like eyes', svg: '<svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z"/><path d="M12 15a3 3 0 0 0 0-6v6z"/></svg>'}
+        ];
+        return types.map(t => ({ ...t, type: 'eye-type'}));
+    }
 
-      function getSkinColors() {
-          const colors = [ { name: 'Pale', value: '#F2D4C2' }, { name: 'Fair', value: '#EBC3AC' }, { name: 'Tan', value: '#D8A788' }, { name: 'Olive', value: '#B58A6F' }, { name: 'Brown', value: '#8C6246' }, { name: 'Dark Brown', value: '#593E2F' } ];
-          return colors.map(c => ({ name: c.name, value: `${c.name.toLowerCase()} skin tone`, type: 'skin-color', thumbnailUrl: '', color: c.value }));
-      }
+    function getSkinColors() {
+        const colors = [ { name: 'Pale', value: '#F2D4C2' }, { name: 'Fair', value: '#EBC3AC' }, { name: 'Tan', value: '#D8A788' }, { name: 'Olive', value: '#B58A6F' }, { name: 'Brown', value: '#8C6246' }, { name: 'Dark Brown', value: '#593E2F' } ];
+        return colors.map(c => ({ name: c.name, value: `${c.name.toLowerCase()} skin tone`, type: 'skin-color', thumbnailUrl: '', color: c.value }));
+    }
 
-      function getLipColors() {
-          const colors = [ { name: 'Natural Pink', value: '#E6A5A5' }, { name: 'Ruby Red', value: '#D1002F' }, { name: 'Deep Plum', value: '#4A0033' }, { name: 'Coral', value: '#FF7F50' }, { name: 'Nude Beige', value: '#D3A18C' } ];
-          return colors.map(c => ({ name: c.name, value: `${c.name.toLowerCase()} lips`, type: 'lip-color', thumbnailUrl: '', color: c.value }));
-      }
+    function getLipColors() {
+        const colors = [ { name: 'Natural Pink', value: '#E6A5A5' }, { name: 'Ruby Red', value: '#D1002F' }, { name: 'Deep Plum', value: '#4A0033' }, { name: 'Coral', value: '#FF7F50' }, { name: 'Nude Beige', value: '#D3A18C' } ];
+        return colors.map(c => ({ name: c.name, value: `${c.name.toLowerCase()} lips`, type: 'lip-color', thumbnailUrl: '', color: c.value }));
+    }
 
-      function getGeneralColors() {
-          const colors = [ { name: 'Crimson', value: '#DC143C' }, { name: 'Azure', value: '#007FFF' }, { name: 'Emerald', value: '#50C878' }, { name: 'Gold', value: '#FFD700' }, { name: 'Silver', value: '#C0C0C0' }, { name: 'Violet', value: '#8F00FF' }, { name: 'Charcoal', value: '#36454F' } ];
-          return colors.map(c => ({ name: c.name, value: `color theme: ${c.name.toLowerCase()}`, type: 'general-color', thumbnailUrl: '', color: c.value }));
-      }
+    function getGeneralColors() {
+        const colors = [ { name: 'Crimson', value: '#DC143C' }, { name: 'Azure', value: '#007FFF' }, { name: 'Emerald', value: '#50C878' }, { name: 'Gold', value: '#FFD700' }, { name: 'Silver', value: '#C0C0C0' }, { name: 'Violet', value: '#8F00FF' }, { name: 'Charcoal', value: '#36454F' } ];
+        return colors.map(c => ({ name: c.name, value: `color theme: ${c.name.toLowerCase()}`, type: 'general-color', thumbnailUrl: '', color: c.value }));
+    }
     
     // --- INITIALIZATION ---
-    renderReferenceCategories();
+    renderAllCategories();
 
   });
 </script>
